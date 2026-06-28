@@ -799,19 +799,38 @@
   .diff-card .diff-name { margin-left: auto; font-size: 1rem; }
   .menu-foot { font-size: 0.66rem; }
 
-  /* ---- BATTLE: single board with a view toggle ---- */
+  /* ---- BATTLE: single board with a view toggle, fits one screen ---- */
   .screen.battle {
     height: 100dvh;
     overflow: hidden;
     justify-content: flex-start;
-    gap: 0.6rem;
+    gap: 0.4rem;
+    padding: 0.45rem 0.6rem;
   }
+  .battle-top { min-height: 0; gap: 0.6rem; }
+  .turn-indicator { padding: 0.35rem 0.9rem; font-size: 0.7rem; }
+  .streak-badge { font-size: 0.72rem; padding: 0.3rem 0.7rem; }
   .battle-tabs { display: flex; }
-  .battle-ticker { display: block; text-align: center; }
+  .battle-tab { padding: 0.4rem 1.1rem; font-size: 0.74rem; }
+  .battle-ticker { display: block; text-align: center; font-size: 0.7rem; min-height: 1em; }
+  .board-head { align-items: center; }
+  .board-title { font-size: 0.82rem; }
+  .stat-value { font-size: 1.05rem; }
   .battle-arena[data-view="attack"] .board-col--player { display: none; }
   .battle-arena[data-view="defense"] .board-col--enemy { display: none; }
-  .board-col { width: min(88vw, 56dvh); gap: 0.45rem; }
-  .fleet-tracker { padding: 0.5rem 0.7rem; }
+  .board-col { width: min(84vw, 46dvh); gap: 0.35rem; }
+
+  /* compact, horizontal fleet tracker so it never pushes off-screen */
+  .fleet-tracker { padding: 0.4rem 0.6rem; }
+  .fleet-tracker-head { margin-bottom: 0.25rem; }
+  .fleet-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.7rem;
+    justify-content: center;
+  }
+  .fleet-pip-name { display: none; }
+  .fleet-pip-bar i { width: 8px; height: 8px; }
 }
 
 /* very short viewports (small phones / in-app browser chrome): compress more */
@@ -826,6 +845,9 @@
   .placement-grid { width: min(72vw, 34dvh); }
   .placement-side { padding: 0.55rem 0.7rem; gap: 0.4rem; }
   .tray-ship { padding: 0.26rem 0.55rem; }
+
+  /* battle: shrink the board further so the fleet tracker stays visible */
+  .board-col { width: min(80vw, 42dvh); }
 }
 
 @media (max-width: 420px) {
