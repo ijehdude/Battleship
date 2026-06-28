@@ -19,6 +19,9 @@ function cellCenter(side: "human" | "ai", row: number, col: number) {
   const el = document.querySelector(`${frame} [data-cell="${row}-${col}"]`);
   if (!el) return null;
   const r = el.getBoundingClientRect();
+  // A board hidden with display:none (the inactive mobile view) still resolves
+  // but reports a zero-size rect — skip FX rather than spawning it at (0,0).
+  if (r.width === 0 || r.height === 0) return null;
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 

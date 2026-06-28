@@ -72,16 +72,18 @@ export function TurnIndicator({ turn, busy }: { turn: Player; busy: boolean }) {
   );
 }
 
+/** Human-readable label for a single combat-log entry, e.g. "B4 · HIT". */
+export function logEntryLabel(e: LogEntry): string {
+  const coord = `${String.fromCharCode(65 + e.coord.col)}${e.coord.row + 1}`;
+  switch (e.outcome) {
+    case "hit": return `${coord} · HIT`;
+    case "sunk": return `${coord} · SUNK ${e.shipName?.toUpperCase()}`;
+    case "miss": return `${coord} · MISS`;
+    default: return coord;
+  }
+}
+
 export function BattleLog({ log }: { log: LogEntry[] }) {
-  const labelFor = (e: LogEntry) => {
-    const coord = `${String.fromCharCode(65 + e.coord.col)}${e.coord.row + 1}`;
-    switch (e.outcome) {
-      case "hit": return `${coord} · HIT`;
-      case "sunk": return `${coord} · SUNK ${e.shipName?.toUpperCase()}`;
-      case "miss": return `${coord} · MISS`;
-      default: return coord;
-    }
-  };
   return (
     <div className="battle-log panel">
       <p className="battle-log-title">COMBAT LOG</p>
@@ -90,10 +92,27 @@ export function BattleLog({ log }: { log: LogEntry[] }) {
         {log.map((e) => (
           <li key={e.id} className={`log-row log-row--${e.side} log-row--${e.outcome}`}>
             <span className="log-side">{e.side === "human" ? "YOU" : "CPU"}</span>
-            <span className="log-text">{labelFor(e)}</span>
+            <span className="log-text">{logEntryLabel(e)}</span>
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** Mobile-only slim ticker showing the most recent shot. */
+export function LastShotTicker({ log }: { log: LogEntry[] }) {
+  const latest = log[0];
+  return (
+    <div className="battle-ticker" aria-live="polite">
+      {latest ? (
+        <span className={`ticker-row ticker-row--${latest.side} ticker-row--${latest.outcome}`}>
+          <span className="ticker-side">{latest.side === "human" ? "YOU" : "CPU"}</span>
+          <span className="ticker-text">{logEntryLabel(latest)}</span>
+        </span>
+      ) : (
+        <span className="ticker-empty">Awaiting first salvo…</span>
+      )}
     </div>
   );
 }

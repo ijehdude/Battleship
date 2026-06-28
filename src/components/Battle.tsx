@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Grid from "./Grid";
-import { FleetTracker, AccuracyStat, TurnIndicator, BattleLog } from "./Hud";
+import {
+  FleetTracker,
+  AccuracyStat,
+  TurnIndicator,
+  BattleLog,
+  LastShotTicker,
+} from "./Hud";
 import { useGame } from "@/state/store";
 import type { Coord } from "@/game/types";
+
+type BattleView = "attack" | "defense";
 
 export default function Battle({ onSound }: { onSound?: (s: string) => void }) {
   const playerBoard = useGame((s) => s.playerBoard);
@@ -18,6 +26,25 @@ export default function Battle({ onSound }: { onSound?: (s: string) => void }) {
   const fireAtEnemy = useGame((s) => s.fireAtEnemy);
 
   const [hover, setHover] = useState<Coord | null>(null);
+
+  // Mobile single-board toggle (ignored by the side-by-side desktop layout).
+  const [view, setView] = useState<BattleView>("attack");
+  const [unseenDamage, setUnseenDamage] = useState(false);
+  const prevAiHits = useRef(aiStats.hits);
+
+  // Flag a pulse on the Defense tab when the AI lands a hit you haven't viewed.
+  useEffect(() => {
+    if (aiStats.hits > prevAiHits.current && view !== "defense") {
+      setUnseenDamage(true);
+    }
+    prevAiHits.current = aiStats.hits;
+  }, [aiStats.hits, view]);
+
+  const switchView = (next: BattleView) => {
+    setView(next);
+    if (next === "defense") setUnseenDamage(false);
+    onSound?.("click");
+  };
 
   const canFire = turn === "human" && !busy;
 
@@ -42,7 +69,29 @@ export default function Battle({ onSound }: { onSound?: (s: string) => void }) {
         )}
       </header>
 
-      <div className="battle-arena">
+      {/* Mobile-only view toggle + slim log ticker (hidden on desktop via CSS) */}
+      <div className="battle-tabs" role="tablist" aria-label="Board view">
+        <button
+          role="tab"
+          aria-selected={view === "attack"}
+          className={`battle-tab battle-tab--attack ${view === "attack" ? "battle-tab--active" : ""}`}
+          onClick={() => switchView("attack")}
+        >
+          ⌖ Attack
+        </button>
+        <button
+          role="tab"
+          aria-selected={view === "defense"}
+          className={`battle-tab battle-tab--defense ${view === "defense" ? "battle-tab--active" : ""}`}
+          onClick={() => switchView("defense")}
+        >
+          🛡 Defense
+          {unseenDamage && <span className="tab-badge" aria-label="New damage" />}
+        </button>
+      </div>
+      <LastShotTicker log={log} />
+
+      <div className="battle-arena" data-view={view}>
         {/* Enemy / targeting grid */}
         <section className="board-col board-col--enemy">
           <div className="board-head">
