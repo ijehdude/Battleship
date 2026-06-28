@@ -195,8 +195,7 @@ export default function Placement({ onSound }: { onSound?: (s: string) => void }
       <header className="phase-head">
         <h2 className="phase-title">DEPLOY YOUR FLEET</h2>
         <p className="phase-hint">
-          Click a ship, move over the grid, then click to place ·{" "}
-          <kbd>R</kbd> or Rotate to turn · click a placed ship to select it
+          Tap a ship, then tap the grid to place · <kbd>R</kbd> or Rotate to turn
         </p>
       </header>
 
