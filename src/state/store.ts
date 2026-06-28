@@ -70,6 +70,16 @@ export interface GameState {
   humanStreak: number;
   aiStreak: number;
 
+  // ---- end-of-match trivia (aggregates that can't be derived from the
+  // capped log) ----
+  bestHitStreak: number; // longest run of consecutive human hits
+  humanMissStreak: number; // current run of consecutive human misses
+  humanLongestMiss: number; // longest such run
+  aiMissStreak: number;
+  aiLongestMiss: number;
+  startedAt: number | null; // battle start timestamp (ms)
+  endedAt: number | null; // killing-blow timestamp (ms)
+
   /** Placement-phase orientation toggle for the next ship drop. */
   placementOrientation: Orientation;
   /** True while the AI is "thinking" so the UI can lock input. */
@@ -119,6 +129,13 @@ const freshState = () => ({
   aiStats: { shots: 0, hits: 0 },
   humanStreak: 0,
   aiStreak: 0,
+  bestHitStreak: 0,
+  humanMissStreak: 0,
+  humanLongestMiss: 0,
+  aiMissStreak: 0,
+  aiLongestMiss: 0,
+  startedAt: null as number | null,
+  endedAt: null as number | null,
   busy: false,
   fx: null as FxEvent | null,
 });
@@ -174,6 +191,8 @@ export const useGame = create<GameState>((set, get) => ({
       enemyBoard,
       aiState: createAiState(difficulty),
       turn: "human",
+      startedAt: Date.now(),
+      endedAt: null,
     });
   },
 
@@ -188,6 +207,9 @@ export const useGame = create<GameState>((set, get) => ({
 
     const hit = result.outcome === "hit" || result.outcome === "sunk";
     const streak = hit ? state.humanStreak + 1 : 0;
+    const bestHitStreak = Math.max(state.bestHitStreak, streak);
+    const humanMissStreak = hit ? 0 : state.humanMissStreak + 1;
+    const humanLongestMiss = Math.max(state.humanLongestMiss, humanMissStreak);
     const won = allSunk(enemyBoard);
 
     set({
@@ -197,6 +219,10 @@ export const useGame = create<GameState>((set, get) => ({
         hits: state.humanStats.hits + (hit ? 1 : 0),
       },
       humanStreak: streak,
+      bestHitStreak,
+      humanMissStreak,
+      humanLongestMiss,
+      endedAt: won ? Date.now() : state.endedAt,
       log: [
         {
           id: nextSeq(),
@@ -206,7 +232,7 @@ export const useGame = create<GameState>((set, get) => ({
           shipName: shipName(result.shipId),
         },
         ...state.log,
-      ].slice(0, 50),
+      ].slice(0, 200),
       fx: {
         seq: nextSeq(),
         side: "human",
@@ -241,6 +267,8 @@ export const useGame = create<GameState>((set, get) => ({
 
     const hit = result.outcome === "hit" || result.outcome === "sunk";
     const streak = hit ? state.aiStreak + 1 : 0;
+    const aiMissStreak = hit ? 0 : state.aiMissStreak + 1;
+    const aiLongestMiss = Math.max(state.aiLongestMiss, aiMissStreak);
     const lost = allSunk(playerBoard);
 
     set({
@@ -251,6 +279,9 @@ export const useGame = create<GameState>((set, get) => ({
         hits: state.aiStats.hits + (hit ? 1 : 0),
       },
       aiStreak: streak,
+      aiMissStreak,
+      aiLongestMiss,
+      endedAt: lost ? Date.now() : state.endedAt,
       log: [
         {
           id: nextSeq(),
@@ -260,7 +291,7 @@ export const useGame = create<GameState>((set, get) => ({
           shipName: shipName(result.shipId),
         },
         ...state.log,
-      ].slice(0, 50),
+      ].slice(0, 200),
       fx: {
         seq: nextSeq(),
         side: "ai",

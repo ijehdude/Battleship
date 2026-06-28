@@ -9,10 +9,9 @@ import {
   BattleLog,
   LastShotTicker,
 } from "./Hud";
+import ViewTabs, { type ViewId } from "./ViewTabs";
 import { useGame } from "@/state/store";
 import type { Coord } from "@/game/types";
-
-type BattleView = "attack" | "defense";
 
 export default function Battle({ onSound }: { onSound?: (s: string) => void }) {
   const playerBoard = useGame((s) => s.playerBoard);
@@ -28,7 +27,7 @@ export default function Battle({ onSound }: { onSound?: (s: string) => void }) {
   const [hover, setHover] = useState<Coord | null>(null);
 
   // Mobile single-board toggle (ignored by the side-by-side desktop layout).
-  const [view, setView] = useState<BattleView>("attack");
+  const [view, setView] = useState<ViewId>("attack");
   const [unseenDamage, setUnseenDamage] = useState(false);
   const prevAiHits = useRef(aiStats.hits);
 
@@ -40,7 +39,7 @@ export default function Battle({ onSound }: { onSound?: (s: string) => void }) {
     prevAiHits.current = aiStats.hits;
   }, [aiStats.hits, view]);
 
-  const switchView = (next: BattleView) => {
+  const switchView = (next: ViewId) => {
     setView(next);
     if (next === "defense") setUnseenDamage(false);
     onSound?.("click");
@@ -70,26 +69,18 @@ export default function Battle({ onSound }: { onSound?: (s: string) => void }) {
       </header>
 
       {/* Mobile-only view toggle + slim log ticker (hidden on desktop via CSS) */}
-      <div className="battle-tabs" role="tablist" aria-label="Board view">
-        <button
-          role="tab"
-          aria-selected={view === "attack"}
-          className={`battle-tab battle-tab--attack ${view === "attack" ? "battle-tab--active" : ""}`}
-          onClick={() => switchView("attack")}
-        >
-          ⌖ Attack
-        </button>
-        <button
-          role="tab"
-          aria-selected={view === "defense"}
-          className={`battle-tab battle-tab--defense ${view === "defense" ? "battle-tab--active" : ""}`}
-          onClick={() => switchView("defense")}
-        >
-          🛡 Defense
-          {unseenDamage && <span className="tab-badge" aria-label="New damage" />}
-        </button>
-      </div>
-      <LastShotTicker log={log} />
+      <ViewTabs
+        className="battle-tabs"
+        ariaLabel="Board view"
+        active={view}
+        onChange={switchView}
+        tabs={[
+          { id: "attack", label: "⌖ Attack" },
+          { id: "defense", label: "🛡 Defense", badge: unseenDamage },
+          { id: "log", label: "☰ Log" },
+        ]}
+      />
+      {view !== "log" && <LastShotTicker log={log} />}
 
       <div className="battle-arena" data-view={view}>
         {/* Enemy / targeting grid */}

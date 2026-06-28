@@ -20,6 +20,8 @@ interface GridProps {
   preview?: PreviewState | null;
   /** Highlight the cells of this ship (placement selection). */
   selectedId?: ShipId | null;
+  /** Target variant only: reveal un-hit enemy ship positions (post-match). */
+  reveal?: boolean;
   lastShot?: Coord | null;
   onCellActivate?: (row: number, col: number) => void;
   onCellEnter?: (row: number, col: number) => void;
@@ -32,7 +34,13 @@ const colLabel = (c: number) => String.fromCharCode(65 + c);
 const cellLabel = (row: number, col: number) => `${colLabel(col)}${row + 1}`;
 
 /** Per-cell visual state for the given board + variant. */
-function deriveState(board: Board, variant: GridVariant, row: number, col: number) {
+function deriveState(
+  board: Board,
+  variant: GridVariant,
+  row: number,
+  col: number,
+  reveal = false,
+) {
   const fired = board.shots.has(keyOf(row, col));
   const ship = board.ships.find((s) =>
     s.cells.some((c) => c.row === row && c.col === col),
@@ -44,10 +52,13 @@ function deriveState(board: Board, variant: GridVariant, row: number, col: numbe
     if (ship) return "ship";
     return "empty";
   }
-  // target variant — enemy ships stay hidden unless sunk
-  if (!fired) return "empty";
-  if (!ship) return "miss";
-  return ship.sunk ? "sunk" : "hit";
+  // target variant — enemy ships stay hidden unless sunk (or revealed post-match)
+  if (fired) {
+    if (!ship) return "miss";
+    return ship.sunk ? "sunk" : "hit";
+  }
+  if (reveal && ship) return "reveal"; // un-hit ship, shown after the match
+  return "empty";
 }
 
 export default function Grid({
@@ -57,6 +68,7 @@ export default function Grid({
   disabled = false,
   preview = null,
   selectedId = null,
+  reveal = false,
   lastShot = null,
   onCellActivate,
   onCellEnter,
@@ -135,7 +147,7 @@ export default function Grid({
         >
           {Array.from({ length: BOARD_SIZE }, (_, row) =>
             Array.from({ length: BOARD_SIZE }, (_, col) => {
-              const state = deriveState(board, variant, row, col);
+              const state = deriveState(board, variant, row, col, reveal);
               const k = keyOf(row, col);
               const inPreview = previewSet?.has(k) ?? false;
               const isSelected = selectedSet?.has(k) ?? false;

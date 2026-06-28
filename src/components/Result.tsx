@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import Grid from "./Grid";
+import { FleetTracker, BattleLog } from "./Hud";
+import ViewTabs, { type ViewId, formatDuration } from "./ViewTabs";
 import { useGame } from "@/state/store";
 import { FLEET } from "@/game/constants";
 
@@ -10,15 +14,31 @@ export default function Result({ onSound }: { onSound?: (s: string) => void }) {
   const difficulty = useGame((s) => s.difficulty);
   const enemyBoard = useGame((s) => s.enemyBoard);
   const playerBoard = useGame((s) => s.playerBoard);
+  const log = useGame((s) => s.log);
+  const bestHitStreak = useGame((s) => s.bestHitStreak);
+  const humanLongestMiss = useGame((s) => s.humanLongestMiss);
+  const aiLongestMiss = useGame((s) => s.aiLongestMiss);
+  const startedAt = useGame((s) => s.startedAt);
+  const endedAt = useGame((s) => s.endedAt);
   const rematch = useGame((s) => s.rematch);
   const backToMenu = useGame((s) => s.backToMenu);
+
+  const [view, setView] = useState<ViewId>("attack");
 
   const won = winner === "human";
   const acc = (s: { shots: number; hits: number }) =>
     s.shots === 0 ? 0 : Math.round((s.hits / s.shots) * 100);
 
-  const enemyShipsLeft = enemyBoard.ships.filter((s) => !s.sunk).length;
-  const yourShipsLeft = playerBoard.ships.filter((s) => !s.sunk).length;
+  const duration = formatDuration(startedAt && endedAt ? endedAt - startedAt : null);
+  const enemySunkByYou = enemyBoard.ships.filter((s) => s.sunk).length;
+  const yourShipsLost = playerBoard.ships.filter((s) => s.sunk).length;
+
+  const compare: { label: string; you: string; cpu: string }[] = [
+    { label: "Shots fired", you: `${humanStats.shots}`, cpu: `${aiStats.shots}` },
+    { label: "Accuracy", you: `${acc(humanStats)}%`, cpu: `${acc(aiStats)}%` },
+    { label: "Longest miss streak", you: `${humanLongestMiss}`, cpu: `${aiLongestMiss}` },
+    { label: "Ships sunk", you: `${enemySunkByYou}/${FLEET.length}`, cpu: `${yourShipsLost}/${FLEET.length}` },
+  ];
 
   return (
     <div className={`screen result result--${won ? "win" : "lose"}`}>
@@ -33,26 +53,69 @@ export default function Result({ onSound }: { onSound?: (s: string) => void }) {
             : "Your fleet has been lost to the deep."}
         </p>
 
-        <div className="result-stats">
+        {/* headline trivia */}
+        <div className="result-headline">
           <div className="result-stat">
-            <span className="result-stat-val">{humanStats.shots}</span>
-            <span className="result-stat-label">SHOTS FIRED</span>
+            <span className="result-stat-val">{duration}</span>
+            <span className="result-stat-label">MATCH TIME</span>
+          </div>
+          <div className="result-stat">
+            <span className="result-stat-val">{bestHitStreak}×</span>
+            <span className="result-stat-label">BEST HIT STREAK</span>
           </div>
           <div className="result-stat">
             <span className="result-stat-val">{acc(humanStats)}%</span>
             <span className="result-stat-label">YOUR ACCURACY</span>
           </div>
-          <div className="result-stat">
-            <span className="result-stat-val">{acc(aiStats)}%</span>
-            <span className="result-stat-label">CPU ACCURACY</span>
+        </div>
+
+        {/* YOU vs CPU scoreboard */}
+        <div className="result-compare">
+          <div className="result-compare-head">
+            <span className="rc-label">STAT</span>
+            <span className="rc-you">YOU</span>
+            <span className="rc-cpu">CPU</span>
           </div>
-          <div className="result-stat">
-            <span className="result-stat-val">
-              {won ? `${yourShipsLeft}/${FLEET.length}` : `${enemyShipsLeft}/${FLEET.length}`}
-            </span>
-            <span className="result-stat-label">
-              {won ? "FLEET SURVIVING" : "ENEMY REMAINING"}
-            </span>
+          {compare.map((r) => (
+            <div className="result-compare-row" key={r.label}>
+              <span className="rc-label">{r.label}</span>
+              <span className="rc-you">{r.you}</span>
+              <span className="rc-cpu">{r.cpu}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* board / log review */}
+        <div className="result-review">
+          <ViewTabs
+            className="result-tabs"
+            ariaLabel="Match review"
+            active={view}
+            onChange={(v) => { setView(v); onSound?.("click"); }}
+            tabs={[
+              { id: "attack", label: "⌖ Attack" },
+              { id: "defense", label: "🛡 Defense" },
+              { id: "log", label: "☰ Log" },
+            ]}
+          />
+          <div className="result-review-body">
+            {view === "attack" && (
+              <div className="result-board">
+                <div className="board-frame board-frame--target">
+                  <Grid variant="target" board={enemyBoard} reveal />
+                </div>
+                <FleetTracker board={enemyBoard} label="ENEMY FLEET" tone="enemy" />
+              </div>
+            )}
+            {view === "defense" && (
+              <div className="result-board">
+                <div className="board-frame board-frame--player">
+                  <Grid variant="player" board={playerBoard} />
+                </div>
+                <FleetTracker board={playerBoard} label="YOUR FLEET" tone="ally" />
+              </div>
+            )}
+            {view === "log" && <BattleLog log={log} />}
           </div>
         </div>
 

@@ -264,6 +264,18 @@
   z-index: 2;
   animation: pulse-glow 1.1s ease-in-out infinite;
 }
+/* post-match reveal of an un-hit enemy ship */
+.cell--reveal {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 53, 214, 0.22),
+    rgba(255, 53, 214, 0.22) 4px,
+    rgba(255, 53, 214, 0.08) 4px,
+    rgba(255, 53, 214, 0.08) 8px
+  );
+  box-shadow: inset 0 0 0 1px rgba(255, 53, 214, 0.45);
+  animation: float-in 0.4s ease both;
+}
 
 /* marks */
 .cell-mark {
@@ -515,6 +527,11 @@
   background: rgba(47, 230, 255, 0.14);
   box-shadow: inset 0 0 0 1px rgba(47, 230, 255, 0.5), 0 0 14px rgba(47, 230, 255, 0.3);
 }
+.battle-tab--active.battle-tab--log {
+  color: var(--gold);
+  background: rgba(255, 216, 74, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 216, 74, 0.5), 0 0 14px rgba(255, 216, 74, 0.28);
+}
 .tab-badge {
   position: absolute;
   top: 4px;
@@ -663,18 +680,19 @@
 .stat-sub { display: block; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-dim); }
 
 /* ---------------- RESULT ---------------- */
-.result { text-align: center; }
+.result { text-align: center; justify-content: flex-start; }
 .result-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  padding: clamp(1.5rem, 5vw, 3rem);
+  gap: 0.7rem;
+  padding: clamp(1rem, 4vw, 2.4rem);
+  width: 100%;
   animation: float-in 0.6s var(--ease-out) both;
 }
 .result-eyebrow { letter-spacing: 0.4em; font-size: 0.7rem; color: var(--text-faint); }
 .result-title {
-  font-size: clamp(3rem, 12vw, 7rem);
+  font-size: clamp(2.4rem, 9vw, 5rem);
   font-weight: 900;
   letter-spacing: 0.1em;
   line-height: 0.9;
@@ -698,7 +716,75 @@
 }
 .result-stat-val { display: block; font-family: var(--font-display); font-size: 1.7rem; color: var(--cyan-bright); }
 .result-stat-label { font-size: 0.58rem; letter-spacing: 0.12em; color: var(--text-faint); }
-.result-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+.result-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-top: 0.3rem; }
+
+/* headline trivia cards (3-up) */
+.result-headline {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 460px;
+}
+.result-headline .result-stat-val { font-size: 1.5rem; }
+
+/* YOU vs CPU scoreboard */
+.result-compare {
+  width: 100%;
+  max-width: 460px;
+  border: 1px solid var(--grid-line-strong);
+  border-radius: var(--r-md);
+  background: rgba(8, 32, 60, 0.4);
+  overflow: hidden;
+}
+.result-compare-head,
+.result-compare-row {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr;
+  align-items: center;
+  padding: 0.45rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+.result-compare-row { border-top: 1px solid var(--grid-line); }
+.result-compare-head {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: var(--text-faint);
+  background: rgba(6, 18, 38, 0.55);
+}
+.rc-label { color: var(--text-dim); text-align: left; }
+.rc-you { color: var(--cyan-bright); text-align: center; font-weight: 700; }
+.rc-cpu { color: var(--magenta-bright); text-align: center; font-weight: 700; }
+.result-compare-head .rc-you,
+.result-compare-head .rc-cpu { color: var(--text-faint); font-weight: 500; }
+
+/* board / log review */
+.result-review {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+}
+.result-tabs {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--grid-line-strong);
+  background: rgba(6, 18, 38, 0.6);
+}
+.result-review-body { width: 100%; display: flex; justify-content: center; }
+.result-board {
+  width: min(80vw, 340px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.result-review-body .battle-log { width: 100%; max-height: 300px; }
 
 /* ---------------- SOUND BAR ---------------- */
 .sound-bar {
@@ -819,6 +905,15 @@
   .battle-arena[data-view="attack"] .board-col--player { display: none; }
   .battle-arena[data-view="defense"] .board-col--enemy { display: none; }
   .board-col { width: min(84vw, 46dvh); gap: 0.35rem; }
+
+  /* Log tab: hide both boards, show the combat log full-width */
+  .battle-arena[data-view="log"] .board-col { display: none; }
+  .battle-arena[data-view="log"] .battle-center {
+    display: flex;
+    width: 100%;
+    align-self: stretch;
+  }
+  .battle-arena[data-view="log"] .battle-log { max-height: 72dvh; }
 
   /* compact, horizontal fleet tracker so it never pushes off-screen */
   .fleet-tracker { padding: 0.4rem 0.6rem; }
