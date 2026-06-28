@@ -23,6 +23,8 @@ interface GridProps {
   /** Target variant only: reveal un-hit enemy ship positions (post-match). */
   reveal?: boolean;
   lastShot?: Coord | null;
+  /** Pulsing highlight on the cell the opponent most recently fired at. */
+  lastEnemyShot?: Coord | null;
   onCellActivate?: (row: number, col: number) => void;
   onCellEnter?: (row: number, col: number) => void;
   onCellLeave?: () => void;
@@ -70,6 +72,7 @@ export default function Grid({
   selectedId = null,
   reveal = false,
   lastShot = null,
+  lastEnemyShot = null,
   onCellActivate,
   onCellEnter,
   onCellLeave,
@@ -153,6 +156,10 @@ export default function Grid({
               const isSelected = selectedSet?.has(k) ?? false;
               const isLast =
                 lastShot && lastShot.row === row && lastShot.col === col;
+              const isIncoming =
+                lastEnemyShot &&
+                lastEnemyShot.row === row &&
+                lastEnemyShot.col === col;
               const isFocusTarget = focus.row === row && focus.col === col;
 
               const classes = [
@@ -161,6 +168,7 @@ export default function Grid({
                 inPreview ? (preview!.valid ? "cell--preview-ok" : "cell--preview-bad") : "",
                 isSelected ? "cell--selected" : "",
                 isLast ? "cell--last" : "",
+                isIncoming ? "cell--incoming" : "",
               ]
                 .filter(Boolean)
                 .join(" ");

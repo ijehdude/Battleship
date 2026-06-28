@@ -264,6 +264,21 @@
   z-index: 2;
   animation: pulse-glow 1.1s ease-in-out infinite;
 }
+/* pulsing ring on the cell the CPU just fired at (your fleet) */
+.cell--incoming {
+  z-index: 3;
+}
+.cell--incoming::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 5px;
+  border: 2px solid var(--magenta-bright);
+  box-shadow: 0 0 12px rgba(255, 53, 214, 0.85), inset 0 0 8px rgba(255, 53, 214, 0.45);
+  animation: pulse-glow 0.9s ease-in-out infinite;
+  pointer-events: none;
+}
+
 /* post-match reveal of an un-hit enemy ship */
 .cell--reveal {
   background: repeating-linear-gradient(

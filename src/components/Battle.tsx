@@ -45,6 +45,9 @@ export default function Battle({ onSound }: { onSound?: (s: string) => void }) {
     onSound?.("click");
   };
 
+  // The cell the CPU most recently fired at (top-most "ai" log entry).
+  const lastAiShot = log.find((l) => l.side === "ai")?.coord ?? null;
+
   const canFire = turn === "human" && !busy;
 
   const fire = (row: number, col: number) => {
@@ -116,7 +119,7 @@ export default function Battle({ onSound }: { onSound?: (s: string) => void }) {
             <AccuracyStat shots={aiStats.shots} hits={aiStats.hits} label="CPU" />
           </div>
           <div className="board-frame board-frame--player">
-            <Grid variant="player" board={playerBoard} />
+            <Grid variant="player" board={playerBoard} lastEnemyShot={lastAiShot} />
           </div>
           <FleetTracker board={playerBoard} label="YOUR FLEET" tone="ally" />
         </section>
