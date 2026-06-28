@@ -259,6 +259,11 @@
 .cell--last {
   z-index: 1;
 }
+.cell--selected {
+  box-shadow: inset 0 0 0 2px var(--magenta), 0 0 14px rgba(255, 53, 214, 0.55) !important;
+  z-index: 2;
+  animation: pulse-glow 1.1s ease-in-out infinite;
+}
 
 /* marks */
 .cell-mark {
@@ -380,15 +385,17 @@
   border-radius: var(--r-sm);
   border: 1px solid var(--grid-line-strong);
   background: rgba(8, 32, 60, 0.4);
-  cursor: grab;
+  cursor: pointer;
   transition: transform 0.15s var(--ease-snap), border-color 0.2s, box-shadow 0.2s;
-  touch-action: none;
 }
 .tray-ship:hover {
   border-color: var(--cyan);
   transform: translateX(3px);
 }
-.tray-ship:active { cursor: grabbing; }
+.tray-ship:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
 .tray-ship--placed {
   border-color: rgba(22, 230, 196, 0.5);
   background: rgba(16, 80, 70, 0.25);
@@ -396,7 +403,12 @@
 .tray-ship--held {
   border-color: var(--magenta);
   box-shadow: var(--glow-magenta);
+  transform: translateX(3px);
 }
+.tray-ship--selected {
+  border-color: rgba(255, 53, 214, 0.6);
+}
+.tray-ship--held .tray-ship-status { color: var(--magenta-bright); }
 .tray-ship-name {
   font-family: var(--font-display);
   font-size: 0.85rem;

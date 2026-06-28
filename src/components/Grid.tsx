@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { BOARD_SIZE } from "@/game/constants";
 import { keyOf } from "@/game/board";
-import type { Board, Coord } from "@/game/types";
+import type { Board, Coord, ShipId } from "@/game/types";
 
 export type GridVariant = "player" | "target";
 
@@ -18,6 +18,8 @@ interface GridProps {
   interactive?: boolean;
   disabled?: boolean;
   preview?: PreviewState | null;
+  /** Highlight the cells of this ship (placement selection). */
+  selectedId?: ShipId | null;
   lastShot?: Coord | null;
   onCellActivate?: (row: number, col: number) => void;
   onCellEnter?: (row: number, col: number) => void;
@@ -54,6 +56,7 @@ export default function Grid({
   interactive = false,
   disabled = false,
   preview = null,
+  selectedId = null,
   lastShot = null,
   onCellActivate,
   onCellEnter,
@@ -65,6 +68,14 @@ export default function Grid({
 
   const previewSet = preview
     ? new Set(preview.cells.map((c) => keyOf(c.row, c.col)))
+    : null;
+
+  const selectedSet = selectedId
+    ? new Set(
+        board.ships
+          .find((s) => s.id === selectedId)
+          ?.cells.map((c) => keyOf(c.row, c.col)) ?? [],
+      )
     : null;
 
   const focusCell = useCallback((row: number, col: number) => {
@@ -127,6 +138,7 @@ export default function Grid({
               const state = deriveState(board, variant, row, col);
               const k = keyOf(row, col);
               const inPreview = previewSet?.has(k) ?? false;
+              const isSelected = selectedSet?.has(k) ?? false;
               const isLast =
                 lastShot && lastShot.row === row && lastShot.col === col;
               const isFocusTarget = focus.row === row && focus.col === col;
@@ -135,6 +147,7 @@ export default function Grid({
                 "cell",
                 `cell--${state}`,
                 inPreview ? (preview!.valid ? "cell--preview-ok" : "cell--preview-bad") : "",
+                isSelected ? "cell--selected" : "",
                 isLast ? "cell--last" : "",
               ]
                 .filter(Boolean)

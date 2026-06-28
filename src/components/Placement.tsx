@@ -23,16 +23,21 @@ export default function Placement({ onSound }: { onSound?: (s: string) => void }
   const clearPlayerBoard = useGame((s) => s.clearPlayerBoard);
   const readyUp = useGame((s) => s.readyUp);
 
+  // A ship "in hand" (lifted, following the cursor as a ghost), or null.
   const [held, setHeld] = useState<HeldShip | null>(null);
+  // A ship already on the board that's selected — Rotate turns it in place.
+  const [selectedId, setSelectedId] = useState<ShipId | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
+
   const gridHostRef = useRef<HTMLDivElement>(null);
   const heldRef = useRef<HeldShip | null>(null);
   heldRef.current = held;
+  const lastHoverRef = useRef<Coord | null>(null);
 
   const placedIds = new Set(playerBoard.ships.map((s) => s.id));
   const allPlaced = placedIds.size === FLEET.length;
 
-  /** Translate a client point to a board coordinate, or null if outside. */
+  /** Translate a client point to a board coordinate, or null if outside the grid. */
   const pointToCoord = useCallback((clientX: number, clientY: number): Coord | null => {
     const gridEl = gridHostRef.current?.querySelector<HTMLElement>(".grid");
     if (!gridEl) return null;
@@ -42,133 +47,173 @@ export default function Placement({ onSound }: { onSound?: (s: string) => void }
     const cell = r.width / BOARD_SIZE;
     const col = Math.floor((clientX - r.left) / cell);
     const row = Math.floor((clientY - r.top) / cell);
-    return { row: Math.max(0, Math.min(BOARD_SIZE - 1, row)), col: Math.max(0, Math.min(BOARD_SIZE - 1, col)) };
+    return {
+      row: Math.max(0, Math.min(BOARD_SIZE - 1, row)),
+      col: Math.max(0, Math.min(BOARD_SIZE - 1, col)),
+    };
   }, []);
 
-  const updatePreview = useCallback(
-    (clientX: number, clientY: number) => {
-      const ship = heldRef.current;
-      if (!ship) return;
-      const c = pointToCoord(clientX, clientY);
-      if (!c) {
-        setPreview(null);
-        return;
-      }
-      const cells = shipCells(c.row, c.col, ship.size, ship.orientation);
-      const valid = canPlace(playerBoard.ships, c.row, c.col, ship.size, ship.orientation, ship.id);
+  const showGhost = useCallback(
+    (coord: Coord, ship: HeldShip) => {
+      const cells = shipCells(coord.row, coord.col, ship.size, ship.orientation);
+      const valid = canPlace(
+        playerBoard.ships,
+        coord.row,
+        coord.col,
+        ship.size,
+        ship.orientation,
+        ship.id,
+      );
       setPreview({ cells, valid });
     },
-    [pointToCoord, playerBoard.ships],
+    [playerBoard.ships],
   );
 
-  const drop = useCallback(
-    (clientX: number, clientY: number) => {
-      const ship = heldRef.current;
-      if (!ship) return;
-      const c = pointToCoord(clientX, clientY);
-      if (c) {
-        const ok = placePlayerShip(ship.id, c.row, c.col, ship.orientation);
-        if (ok) onSound?.("place");
-        else onSound?.("error");
-      }
-      setHeld(null);
-      setPreview(null);
-    },
-    [pointToCoord, placePlayerShip, onSound],
-  );
-
-  // window-level pointer listeners while a ship is held
+  // While a ship is in hand, the ghost follows the cursor/finger across the grid.
   useEffect(() => {
     if (!held) return;
     const move = (e: PointerEvent) => {
-      e.preventDefault();
-      updatePreview(e.clientX, e.clientY);
-    };
-    const up = (e: PointerEvent) => drop(e.clientX, e.clientY);
-    window.addEventListener("pointermove", move, { passive: false });
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
-    };
-  }, [held, updatePreview, drop]);
-
-  // 'R' rotates the held ship; rotate also the default orientation
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === "r") {
-        rotate();
+      const c = pointToCoord(e.clientX, e.clientY);
+      if (c) {
+        lastHoverRef.current = c;
+        showGhost(c, held);
+      } else {
+        setPreview(null);
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [held, placementOrientation]);
+    window.addEventListener("pointermove", move);
+    return () => window.removeEventListener("pointermove", move);
+  }, [held, pointToCoord, showGhost]);
 
-  const rotate = () => {
-    const next: Orientation =
-      placementOrientation === "horizontal" ? "vertical" : "horizontal";
-    setPlacementOrientation(next);
-    onSound?.("click");
-    if (heldRef.current) {
-      const updated = { ...heldRef.current, orientation: next };
-      heldRef.current = updated;
-      setHeld(updated);
-    }
-  };
-
-  const beginDrag = (id: ShipId, size: number, e: React.PointerEvent) => {
-    e.preventDefault();
-    // picking up an already-placed ship frees its cells
+  // ---- pick up a ship from the roster (or lift a placed one back into hand) ----
+  const pickUp = (id: ShipId, size: number) => {
     if (placedIds.has(id)) removePlayerShip(id);
     const ship: HeldShip = { id, size, orientation: placementOrientation };
     heldRef.current = ship;
     setHeld(ship);
-    updatePreview(e.clientX, e.clientY);
+    setSelectedId(null);
     onSound?.("pickup");
+    if (lastHoverRef.current) showGhost(lastHoverRef.current, ship);
   };
 
-  // accessible click-to-place: clicking a cell drops the held ship there
+  // ---- click a grid cell: place the held ship, or select a placed one ----
   const onCellActivate = (row: number, col: number) => {
     const ship = heldRef.current;
-    if (!ship) return;
-    const ok = placePlayerShip(ship.id, row, col, ship.orientation);
-    if (ok) {
-      onSound?.("place");
-      setHeld(null);
-      setPreview(null);
-    } else onSound?.("error");
+    if (ship) {
+      const ok = placePlayerShip(ship.id, row, col, ship.orientation);
+      if (ok) {
+        onSound?.("place");
+        setHeld(null);
+        setSelectedId(ship.id); // keep it selected so Rotate works in place
+        setPreview(null);
+      } else {
+        onSound?.("error");
+      }
+      return;
+    }
+    // nothing in hand — selecting an existing ship targets it for rotation
+    const existing = playerBoard.ships.find((s) =>
+      s.cells.some((c) => c.row === row && c.col === col),
+    );
+    if (existing) {
+      setSelectedId(existing.id);
+      onSound?.("click");
+    }
   };
 
   const onCellEnter = (row: number, col: number) => {
-    const ship = heldRef.current;
-    if (!ship) return;
-    const cells = shipCells(row, col, ship.size, ship.orientation);
-    const valid = canPlace(playerBoard.ships, row, col, ship.size, ship.orientation, ship.id);
-    setPreview({ cells, valid });
+    lastHoverRef.current = { row, col };
+    if (heldRef.current) showGhost({ row, col }, heldRef.current);
   };
+
+  // ---- rotation: turns the held ghost, or the selected placed ship in place ----
+  const rotatePlaced = (id: ShipId): boolean => {
+    const ship = playerBoard.ships.find((s) => s.id === id);
+    if (!ship) return false;
+    const next: Orientation =
+      ship.orientation === "horizontal" ? "vertical" : "horizontal";
+    // Try the same anchor first, then nudge back so an edge ship still fits.
+    const candidates: Coord[] = [{ row: ship.row, col: ship.col }];
+    for (let i = 1; i < ship.size; i++) {
+      candidates.push(
+        next === "vertical"
+          ? { row: ship.row - i, col: ship.col }
+          : { row: ship.row, col: ship.col - i },
+      );
+    }
+    for (const a of candidates) {
+      if (a.row < 0 || a.col < 0) continue;
+      if (canPlace(playerBoard.ships, a.row, a.col, ship.size, next, id)) {
+        placePlayerShip(id, a.row, a.col, next);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const rotate = () => {
+    const ship = heldRef.current;
+    if (ship) {
+      const next: Orientation =
+        ship.orientation === "horizontal" ? "vertical" : "horizontal";
+      const updated = { ...ship, orientation: next };
+      heldRef.current = updated;
+      setHeld(updated);
+      setPlacementOrientation(next);
+      if (lastHoverRef.current) showGhost(lastHoverRef.current, updated);
+      onSound?.("click");
+      return;
+    }
+    if (selectedId) {
+      const ok = rotatePlaced(selectedId);
+      onSound?.(ok ? "click" : "error");
+      return;
+    }
+    // nothing held or selected — just flip the default for the next placement
+    setPlacementOrientation(
+      placementOrientation === "horizontal" ? "vertical" : "horizontal",
+    );
+    onSound?.("click");
+  };
+
+  // keep a live ref so the global 'R' handler never goes stale
+  const rotateRef = useRef(rotate);
+  rotateRef.current = rotate;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        rotateRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="screen placement">
       <header className="phase-head">
         <h2 className="phase-title">DEPLOY YOUR FLEET</h2>
         <p className="phase-hint">
-          Drag ships onto the grid · <kbd>R</kbd> or Rotate to turn · tap a placed ship to move it
+          Click a ship, move over the grid, then click to place ·{" "}
+          <kbd>R</kbd> or Rotate to turn · click a placed ship to select it
         </p>
       </header>
 
       <div className="placement-body">
-        <div className="placement-grid" ref={gridHostRef}>
+        <div
+          className="placement-grid"
+          ref={gridHostRef}
+          onMouseLeave={() => held && setPreview(null)}
+        >
           <Grid
             variant="player"
             board={playerBoard}
-            interactive={!!held}
+            interactive
             preview={preview}
+            selectedId={selectedId}
             onCellActivate={onCellActivate}
             onCellEnter={onCellEnter}
-            onCellLeave={() => held && setPreview(null)}
           />
         </div>
 
@@ -178,22 +223,23 @@ export default function Placement({ onSound }: { onSound?: (s: string) => void }
             {FLEET.map((s) => {
               const isPlaced = placedIds.has(s.id);
               const isHeld = held?.id === s.id;
+              const isSelected = selectedId === s.id && !isHeld;
               return (
                 <li
                   key={s.id}
-                  className={`tray-ship ${isPlaced ? "tray-ship--placed" : ""} ${isHeld ? "tray-ship--held" : ""}`}
-                  onPointerDown={(e) => beginDrag(s.id, s.size, e)}
+                  className={`tray-ship ${isPlaced ? "tray-ship--placed" : ""} ${
+                    isHeld ? "tray-ship--held" : ""
+                  } ${isSelected ? "tray-ship--selected" : ""}`}
+                  onClick={() => pickUp(s.id, s.size)}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${s.name}, length ${s.size}${isPlaced ? ", placed" : ", in dock"}`}
+                  aria-label={`${s.name}, length ${s.size}${
+                    isPlaced ? ", placed — click to move" : ", click to pick up"
+                  }`}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      // keyboard pickup: select for click-to-place
-                      if (isPlaced) removePlayerShip(s.id);
-                      const ship = { id: s.id, size: s.size, orientation: placementOrientation };
-                      heldRef.current = ship;
-                      setHeld(ship);
+                      pickUp(s.id, s.size);
                     }
                   }}
                 >
@@ -204,7 +250,7 @@ export default function Placement({ onSound }: { onSound?: (s: string) => void }
                     ))}
                   </span>
                   <span className="tray-ship-status">
-                    {isPlaced ? "✓ DEPLOYED" : `LEN ${s.size}`}
+                    {isHeld ? "◆ IN HAND" : isPlaced ? "✓ DEPLOYED" : `LEN ${s.size}`}
                   </span>
                 </li>
               );
@@ -213,10 +259,28 @@ export default function Placement({ onSound }: { onSound?: (s: string) => void }
 
           <div className="placement-controls">
             <button className="btn btn--ghost" onClick={rotate}>↻ Rotate</button>
-            <button className="btn btn--ghost" onClick={() => { randomizePlayer(); onSound?.("place"); }}>
+            <button
+              className="btn btn--ghost"
+              onClick={() => {
+                randomizePlayer();
+                setHeld(null);
+                setSelectedId(null);
+                setPreview(null);
+                onSound?.("place");
+              }}
+            >
               ⚄ Randomize
             </button>
-            <button className="btn btn--ghost" onClick={() => { clearPlayerBoard(); onSound?.("click"); }}>
+            <button
+              className="btn btn--ghost"
+              onClick={() => {
+                clearPlayerBoard();
+                setHeld(null);
+                setSelectedId(null);
+                setPreview(null);
+                onSound?.("click");
+              }}
+            >
               ✕ Clear
             </button>
           </div>
